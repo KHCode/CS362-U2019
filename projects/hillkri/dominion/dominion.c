@@ -713,6 +713,56 @@ int minionEffect(struct gameState* state, int choice, int currentPlayer, int han
 	return 0;
 }
 
+int ambChoiceCheck(struct gameState* state, int cardChoice, int returnToSupply, int currentPlayer, int handPos) {
+	if (cardChoice == handPos) {
+		return -1;
+	}
+	if (returnToSupply > 2 || returnToSupply < 0) {
+		return -1;
+	}
+
+	int numInHand = 0;
+	for (int i = 0; i < state->handCount[currentPlayer]; i++) {
+		if (cardChoice == state->hand[currentPlayer][i]) {
+			numInHand++;
+		}
+	}
+
+	if (numInHand < returnToSupply) {
+		return -1;
+	}
+
+	return 0;
+}
+
+int ambassadorEffect(struct gameState* state, int cardChoice, int returnToSupply, int currentPlayer, int handPos) {
+	if(ambChoiceCheck(state, cardChoice, returnToSupply, currentPlayer, handPos) < 0){
+		return -1;
+	}
+
+	printf("Player %d reveals card number: %d\n", currentPlayer, state->hand[currentPlayer][cardChoice]);
+
+	state->supplyCount[state->hand[currentPlayer][cardChoice]] += returnToSupply; //increase supply count for choosen card by amount being discarded
+
+	for (int i = 0; i < state->numPlayers; i++) {	//each other player gains a copy of revealed card
+		if (i != currentPlayer) {
+			gainCard(state->hand[currentPlayer][cardChoice], state, 0, i);
+		}
+	}
+
+	discardCard(handPos, currentPlayer, state, 0);	//discard played card from hand
+
+	for (int j = 0; j < returnToSupply; j++) {	//trash copies of cards returned to supply
+		for (int i = 0; i < state->handCount[currentPlayer]; i++) {
+			if (state->hand[currentPlayer][i] == state->hand[currentPlayer][cardChoice]) {
+				discardCard(i, currentPlayer, state, 1);
+			}
+		}
+	}
+
+	return 0;
+}
+
 int cardEffect(int card, int choice1, int choice2, int choice3, struct gameState *state, int handPos, int *bonus)
 {
   int i;
@@ -1020,62 +1070,7 @@ int cardEffect(int card, int choice1, int choice2, int choice3, struct gameState
       return 0;
 		
     case ambassador:
-      j = 0;		//used to check if player has enough cards to discard
-
-      if (choice2 > 2 || choice2 < 0)
-	{
-	  return -1;				
-	}
-
-      if (choice1 == handPos)
-	{
-	  return -1;
-	}
-
-      for (i = 0; i < state->handCount[currentPlayer]; i++)
-	{
-	  if (i != handPos && i == state->hand[currentPlayer][choice1] && i != choice1)
-	    {
-	      j++;
-	    }
-	}
-      if (j < choice2)
-	{
-	  return -1;				
-	}
-
-      if (DEBUG) 
-	printf("Player %d reveals card number: %d\n", currentPlayer, state->hand[currentPlayer][choice1]);
-
-      //increase supply count for choosen card by amount being discarded
-      state->supplyCount[state->hand[currentPlayer][choice1]] += choice2;
-			
-      //each other player gains a copy of revealed card
-      for (i = 0; i < state->numPlayers; i++)
-	{
-	  if (i != currentPlayer)
-	    {
-	      gainCard(state->hand[currentPlayer][choice1], state, 0, i);
-	    }
-	}
-
-      //discard played card from hand
-      discardCard(handPos, currentPlayer, state, 0);			
-
-      //trash copies of cards returned to supply
-      for (j = 0; j < choice2; j++)
-	{
-	  for (i = 0; i < state->handCount[currentPlayer]; i++)
-	    {
-	      if (state->hand[currentPlayer][i] == state->hand[currentPlayer][choice1])
-		{
-		  discardCard(i, currentPlayer, state, 1);
-		  break;
-		}
-	    }
-	}			
-
-      return 0;
+		ambassadorEffect(state, choice1, choice2, currentPlayer, handPos);
 		
     case cutpurse:
 
